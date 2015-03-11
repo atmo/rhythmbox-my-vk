@@ -26,7 +26,7 @@ class MyVKPlugin (GObject.Object, Peas.Activatable):
         shell.append_display_page(self.source, group)
 
     def do_deactivate(self):
-        print("Pluging deactivated.")
+        print("Plugin deactivated.")
 
 
 class VKEntryType(RB.RhythmDBEntryType):
