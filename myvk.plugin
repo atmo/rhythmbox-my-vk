@@ -1,0 +1,9 @@
+[Plugin]
+Loader=python3
+Module=myvk
+IAge=2
+Name=My VK
+Description=A plugin to play your music from vk.com
+Authors=Stanislav Rogovskiy <stanislav.rogovskiy@gmail.com>
+Copyright=Copyright © 2015 Stanislav Rogovskiy
+Website=http://github.com/atmo/rhythmbox-my-vk
