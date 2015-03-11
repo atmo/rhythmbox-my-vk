@@ -26,6 +26,10 @@ class MyVKPlugin (GObject.Object, Peas.Activatable):
         shell.append_display_page(self.source, group)
 
     def do_deactivate(self):
+        self.source.delete_thyself()
+        self.source = None
+        self.settings = None
+        self.entry_type = None
         print("Plugin deactivated.")
 
 
