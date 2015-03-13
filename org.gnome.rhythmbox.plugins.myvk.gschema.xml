@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gnome-shell-extensions">
+  <schema path="/org/gnome/rhythmbox/plugins/myvk/" id="org.gnome.rhythmbox.plugins.myvk">
+    <key type="s" name="app-id">
+      <default>"4820936"</default>
+      <summary>Application identifier</summary>
+      <description>Application identifier to connect to vk.com API</description>
+    </key>
+    <key type="s" name="access-token">
+      <default>""</default>
+      <summary>Access token</summary>
+      <description>Access token for an authorised user</description>
+    </key>
+  </schema>
+</schemalist>
