@@ -11,5 +11,10 @@
       <summary>Access token</summary>
       <description>Access token for an authorised user</description>
     </key>
+    <key type="s" name="user-id">
+      <default>""</default>
+      <summary>User identifier</summary>
+      <description>User vk.com identifier</description>
+    </key>
   </schema>
 </schemalist>
