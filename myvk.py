@@ -1,8 +1,9 @@
 from gi.repository import GObject, RB, Peas, Gio,\
-    Gtk, PeasGtk, GdkPixbuf, WebKit
+    Gtk, PeasGtk, WebKit
 from urllib.parse import parse_qs
 from urllib.request import urlopen
 import json
+import sys
 
 SCHEMA_ID = "org.gnome.rhythmbox.plugins.myvk"
 
@@ -75,6 +76,9 @@ class VKSource(RB.BrowserSource):
         self.initialised = False
         self.configured = False
 
+        self.entry_view = self.get_entry_view()
+        self.entry_view.set_sorting_order("Track", Gtk.SortType.ASCENDING)
+
         self.db = db
         self.settings = settings
         self.access_token = self.settings.get_string('access-token')
@@ -101,21 +105,25 @@ class VKSource(RB.BrowserSource):
 
     def refresh_button_clicked(self, buttont):
         if not self.configured:
+            print("document")
             self.show_warning()
             return
 
         url = ("https://api.vk.com/method/audio.get.json?"
-              "access_token={0}&owner_id={1}"
-              .format(self.access_token, self.user_id))
-        request = urlopen(url)   
+               "access_token={0}&owner_id={1}"
+               .format(self.access_token, self.user_id))
+        print(url)
+        request = urlopen(url)
         encoding = request.headers.get_content_charset()
-        document = json.loads(request.read().decode(encoding))  
+        document = json.loads(request.read().decode(encoding))
         response = document['response']
         audios = response[1:]
-        for i, audio in enumerate(audios[:2]):
-            audio['track_number'] = i+1
+        for i, audio in enumerate(audios):
+            audio['track_number'] = i + 1
             self.add_entry(audio)
-
+        self.db.commit()
+        self.props.query_model.set_sort_order(
+            RB.RhythmDBQueryModel.track_sort_func)
 
     def show_warning(self, err_code=-1, err_msg=""):
         dialog = Gtk.Dialog(buttons=(Gtk.STOCK_OK, Gtk.ResponseType.OK))
@@ -127,7 +135,8 @@ class VKSource(RB.BrowserSource):
         dialog.destroy()
 
     def add_entry(self, audio):
-        audio_id = (audio['artist'] + audio['title'] + str(audio['duration'])).lower()
+        audio_id = (
+            audio['artist'] + audio['title'] + str(audio['duration'])).lower()
         if audio_id in self.audio_ids:
             return
 
@@ -136,22 +145,22 @@ class VKSource(RB.BrowserSource):
             entry = self.db.entry_lookup_by_location(audio['url'])
             if entry is not None:
                 return
-            entry = RB.RhythmDBEntry.new(self.db, self.props.entry_type, audio['url'])
-            
-            self.db.commit()
+            entry = RB.RhythmDBEntry.new(
+                self.db, self.props.entry_type, audio['url'])
             if entry is not None:
                 self.db.entry_set(
-                    entry, RB.RhythmDBPropType.TRACK_NUMBER, audio['track_number'])
+                    entry, RB.RhythmDBPropType.TRACK_NUMBER,
+                    audio['track_number'])
                 self.db.entry_set(
                     entry, RB.RhythmDBPropType.TITLE, audio['title'])
                 self.db.entry_set(
                     entry, RB.RhythmDBPropType.DURATION, audio['duration'])
                 self.db.entry_set(
                     entry, RB.RhythmDBPropType.ARTIST, audio['artist'])
-            self.db.commit()
         except Exception as e:  # This happens on duplicate uris being added
             sys.excepthook(*sys.exc_info())
-            print("Couldn't add %s - %s" % (audio['artist'], audio['title']), e)
+            print("Couldn't add %s - %s" %
+                  (audio['artist'], audio['title']), e)
 
     def do_selected(self):
         if not self.initialised:
@@ -164,7 +173,7 @@ class VKSource(RB.BrowserSource):
             return
         url = ("https://api.vk.com/method/users.isAppUser.json?"
                "access_token={0}".format(self.access_token))
-        request = urlopen(url)        
+        request = urlopen(url)
         encoding = request.headers.get_content_charset()
         document = json.loads(request.read().decode(encoding))
         response = document.get("response")
