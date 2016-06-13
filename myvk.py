@@ -77,7 +77,7 @@ class VKSource(RB.BrowserSource):
         self.app_id = settings.get_string(key)
 
     def on_user_id_changed(self, settings, key):
-        self.user_name = settings.get_string(key)
+        self.user_id = settings.get_string(key)
 
     def setup(self, db, settings):
         self.initialised = False
@@ -90,7 +90,7 @@ class VKSource(RB.BrowserSource):
         self.settings = settings
         self.access_token = self.settings.get_string('access-token')
         self.app_id = self.settings.get_string('app-id')
-        self.user_name = self.settings.get_string('username')
+        self.user_id = self.settings.get_string('user-id')
 
         self.settings.connect(
             "changed::access-token", self.on_access_token_changed)
@@ -120,7 +120,7 @@ class VKSource(RB.BrowserSource):
 
     def download_audios(self):
         url = ("https://api.vk.com/method/audio.get.json?access_token={0}&owner_id={1}"
-            .format(self.access_token, self.user_name))
+            .format(self.access_token, self.user_id))
         request = urlopen(url)
         encoding = request.headers.get_content_charset()
         document = json.loads(request.read().decode(encoding))
