@@ -2,10 +2,18 @@ from gi.repository import GObject, RB, Peas, Gio,\
     Gtk, PeasGtk, WebKit
 from urllib.parse import parse_qs
 from urllib.request import urlopen
+import rb
 import json
 import sys
 
 SCHEMA_ID = "org.gnome.rhythmbox.plugins.myvk"
+
+def create_settings(data_dir):
+    schema_source = Gio.SettingsSchemaSource.new_from_directory(
+        data_dir,
+        Gio.SettingsSchemaSource.get_default(), False,)
+    schema = schema_source.lookup(SCHEMA_ID, False)
+    return Gio.Settings.new_full(schema, None, None)
 
 
 class MyVKPlugin (GObject.Object, Peas.Activatable):
@@ -17,11 +25,7 @@ class MyVKPlugin (GObject.Object, Peas.Activatable):
 
     def do_activate(self):
         print("Activating plugin.")
-        schema_source = Gio.SettingsSchemaSource.new_from_directory(
-            self.plugin_info.get_data_dir(),
-            Gio.SettingsSchemaSource.get_default(), False,)
-        schema = schema_source.lookup(SCHEMA_ID, False)
-        self.settings = Gio.Settings.new_full(schema, None, None)
+        self.settings = create_settings(self.plugin_info.get_data_dir())
 
         shell = self.object
         db = shell.props.db
@@ -70,7 +74,7 @@ class VKSource(RB.BrowserSource):
         self.app_id = settings.get_string(key)
 
     def on_user_id_changed(self, settings, key):
-        self.user_id = settings.get_string(key)
+        self.user_name = settings.get_string(key)
 
     def setup(self, db, settings):
         self.initialised = False
@@ -81,9 +85,9 @@ class VKSource(RB.BrowserSource):
 
         self.db = db
         self.settings = settings
-        self.access_token = self.settings.get_string('access-token')
+        self.access_token = None
         self.app_id = self.settings.get_string('app-id')
-        self.user_id = self.settings.get_string('user-id')
+        self.user_name = self.settings.get_string('username')
 
         self.settings.connect(
             "changed::access-token", self.on_access_token_changed)
@@ -111,7 +115,7 @@ class VKSource(RB.BrowserSource):
 
         url = ("https://api.vk.com/method/audio.get.json?"
                "access_token={0}&owner_id={1}"
-               .format(self.access_token, self.user_id))
+               .format(self.access_token, self.user_name))
         print(url)
         request = urlopen(url)
         encoding = request.headers.get_content_charset()
@@ -193,34 +197,28 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
         GObject.GObject.__init__(self)
 
     def do_create_configure_widget(self):
-        schema_source = Gio.SettingsSchemaSource.new_from_directory(
-            self.plugin_info.get_data_dir(),
-            Gio.SettingsSchemaSource.get_default(), False,)
-        schema = schema_source.lookup(SCHEMA_ID, False)
-        self.settings = Gio.Settings.new_full(schema, None, None)
-        self.app_id = self.settings.get_string('app-id')
+        self.settings = create_settings(self.plugin_info.get_data_dir())
+        self.ui = Gtk.Builder()
+        self.ui.add_from_file(rb.find_plugin_file(self, 'myvk-prefs.ui'))
+        self.config_dialog = self.ui.get_object('config')
 
-        grid = Gtk.Grid()
-        webview = WebKit.WebView()
-        oauth_url = (
-            "https://oauth.vk.com/oauth/authorize?client_id={0}"
-            "&scope=audio,offline&display=popup"
-            "&redirect_uri=http://oauth.vk.com/blank.html"
-            "&response_type=token".format(self.app_id))
-        webview.load_uri(oauth_url)
+        self.username = self.ui.get_object("username_entry")
+        self.username.set_text(self.settings['username'])
 
-        def on_uri_changed(webview, prop, grid):
-            url = webview.get_property(prop.name)
-            if 'access_token' in url:
-                args = url.split("#", 1)[1]
-                params = parse_qs(args)
-                self.settings.set_string(
-                    'access-token', params["access_token"][0])
-                self.settings.set_string(
-                    'user-id', params["user_id"][0])
-        webview.connect("notify::uri", on_uri_changed, grid)
-        grid.attach(webview, 0, 0, 1, 1)
-        return grid
+        self.password = self.ui.get_object("password_entry")
+        self.password.set_visibility(False)
+        self.password.set_text(self.settings['password'])
+
+        self.username.connect('changed', self.username_changed_cb)
+        self.password.connect('changed', self.password_changed_cb)
+
+        return self.config_dialog
+
+    def username_changed_cb(self, widget):
+        self.settings['username'] = self.username.get_text()
+
+    def password_changed_cb(self, widget):
+        self.settings['password'] = self.password.get_text()
 
 
 GObject.type_register(VKSource)

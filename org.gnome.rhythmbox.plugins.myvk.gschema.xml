@@ -6,15 +6,15 @@
       <summary>Application identifier</summary>
       <description>Application identifier to connect to vk.com API</description>
     </key>
-    <key type="s" name="access-token">
+    <key type="s" name="username">
       <default>""</default>
-      <summary>Access token</summary>
-      <description>Access token for an authorised user</description>
+      <summary>User name</summary>
+      <description>User login name for vk.com</description>
     </key>
-    <key type="s" name="user-id">
+    <key type="s" name="password">
       <default>""</default>
-      <summary>User identifier</summary>
-      <description>User vk.com identifier</description>
+      <summary>User password</summary>
+      <description>User password for vk.com</description>
     </key>
   </schema>
 </schemalist>
