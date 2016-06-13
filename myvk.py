@@ -5,6 +5,7 @@ from urllib.request import urlopen
 import rb
 import json
 import sys
+import vk
 
 SCHEMA_ID = "org.gnome.rhythmbox.plugins.myvk"
 
@@ -85,7 +86,7 @@ class VKSource(RB.BrowserSource):
 
         self.db = db
         self.settings = settings
-        self.access_token = None
+        self.access_token = self.settings.get_string('access-token')
         self.app_id = self.settings.get_string('app-id')
         self.user_name = self.settings.get_string('username')
 
@@ -116,7 +117,6 @@ class VKSource(RB.BrowserSource):
         url = ("https://api.vk.com/method/audio.get.json?"
                "access_token={0}&owner_id={1}"
                .format(self.access_token, self.user_name))
-        print(url)
         request = urlopen(url)
         encoding = request.headers.get_content_charset()
         document = json.loads(request.read().decode(encoding))
@@ -212,6 +212,10 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
         self.username.connect('changed', self.username_changed_cb)
         self.password.connect('changed', self.password_changed_cb)
 
+
+        self.authorize_button = self.ui.get_object("authorize_button")
+        self.authorize_button.connect('clicked', self.authorize)
+
         return self.config_dialog
 
     def username_changed_cb(self, widget):
@@ -219,6 +223,21 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
 
     def password_changed_cb(self, widget):
         self.settings['password'] = self.password.get_text()
+
+    def authorize(self, arg):
+        session = vk.AuthSession(app_id=self.settings['app-id'], 
+            user_login=self.settings['username'],
+            user_password=self.settings['password'],
+            scope="audio,offline")
+        api = vk.API(session)
+        response = api.users.get()[0]
+        self.settings.set_string('user-id', str(response['uid']))
+        self.settings.set_string('access-token', session.get_access_token())
+        self.on_authorized()
+
+    def on_authorized(self):
+        self.progress_label = self.ui.get_object("progress_label")
+        self.progress_label.set_text("Done!")
 
 
 GObject.type_register(VKSource)
