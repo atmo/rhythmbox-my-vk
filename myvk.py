@@ -2,6 +2,9 @@ from gi.repository import GObject, RB, Peas, Gio,\
     Gtk, PeasGtk, WebKit
 from urllib.parse import parse_qs
 from urllib.request import urlopen
+
+from utils import asynchronous_call
+
 import rb
 import json
 import sys
@@ -15,7 +18,6 @@ def create_settings(data_dir):
         Gio.SettingsSchemaSource.get_default(), False,)
     schema = schema_source.lookup(SCHEMA_ID, False)
     return Gio.Settings.new_full(schema, None, None)
-
 
 class MyVKPlugin (GObject.Object, Peas.Activatable):
     object = GObject.property(type=GObject.Object)
@@ -110,24 +112,29 @@ class VKSource(RB.BrowserSource):
 
     def refresh_button_clicked(self, buttont):
         if not self.configured:
-            print("document")
             self.show_warning()
             return
 
-        url = ("https://api.vk.com/method/audio.get.json?"
-               "access_token={0}&owner_id={1}"
-               .format(self.access_token, self.user_name))
+        asynchronous_call(self.download_audios, self.on_audios_downloaded)()
+        
+
+    def download_audios(self):
+        url = ("https://api.vk.com/method/audio.get.json?access_token={0}&owner_id={1}"
+            .format(self.access_token, self.user_name))
         request = urlopen(url)
         encoding = request.headers.get_content_charset()
         document = json.loads(request.read().decode(encoding))
         response = document['response']
-        audios = response[1:]
+        return response
+
+    def on_audios_downloaded(self, result):
+        audios = result[1:]
         for i, audio in enumerate(audios):
             audio['track_number'] = i + 1
             self.add_entry(audio)
         self.db.commit()
-        self.props.query_model.set_sort_order(
-            RB.RhythmDBQueryModel.track_sort_func)
+        # self.props.query_model.set_sort_order(
+        #     RB.RhythmDBQueryModel.track_sort_func, None, False)
 
     def show_warning(self, err_code=-1, err_msg=""):
         dialog = Gtk.Dialog(buttons=(Gtk.STOCK_OK, Gtk.ResponseType.OK))
@@ -214,7 +221,9 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
 
 
         self.authorize_button = self.ui.get_object("authorize_button")
-        self.authorize_button.connect('clicked', self.authorize)
+        self.authorize_button.connect('clicked', asynchronous_call(self.do_authorize, self.on_authorized))
+
+        self.progress_label = self.ui.get_object("progress_label")
 
         return self.config_dialog
 
@@ -224,7 +233,8 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
     def password_changed_cb(self, widget):
         self.settings['password'] = self.password.get_text()
 
-    def authorize(self, arg):
+    def do_authorize(self, arg):
+        self.progress_label.set_text("Please wait...")
         session = vk.AuthSession(app_id=self.settings['app-id'], 
             user_login=self.settings['username'],
             user_password=self.settings['password'],
@@ -233,10 +243,10 @@ class VKRhythmboxConfig(GObject.Object, PeasGtk.Configurable):
         response = api.users.get()[0]
         self.settings.set_string('user-id', str(response['uid']))
         self.settings.set_string('access-token', session.get_access_token())
-        self.on_authorized()
 
-    def on_authorized(self):
-        self.progress_label = self.ui.get_object("progress_label")
+
+        
+    def on_authorized(self, callback_result):
         self.progress_label.set_text("Done!")
 
 
